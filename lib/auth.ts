@@ -1,13 +1,13 @@
 import { NextAuthOptions } from "next-auth"
-// import { PrismaAdapter } from "@auth/prisma-adapter"
+import { PrismaAdapter } from "@auth/prisma-adapter"
 import GoogleProvider from "next-auth/providers/google"
 import GitHubProvider from "next-auth/providers/github"
 import CredentialsProvider from "next-auth/providers/credentials"
-// import { prisma } from "@/lib/db"
-// import { compare } from "bcryptjs"
+import { prisma } from "@/lib/db"
+import { compare } from "bcryptjs"
 
 export const authOptions: NextAuthOptions = {
-  // adapter: PrismaAdapter(prisma),
+  // adapter: PrismaAdapter(prisma), // Disabled for now due to Prisma generation issues
   session: {
     strategy: "jwt",
   },
@@ -40,8 +40,18 @@ export const authOptions: NextAuthOptions = {
           return null
         }
 
-        // TODO: Implement database authentication
-        // For now, return null to disable credentials auth
+        // TODO: Implement database authentication when Prisma is working
+        // For now, return a test user for demo purposes
+        if (credentials.email === "admin@jobboard.com" && credentials.password === "admin123") {
+          return {
+            id: "admin-1",
+            email: "admin@jobboard.com",
+            name: "Admin User",
+            role: "ADMIN",
+            companyId: null,
+          }
+        }
+
         return null
       },
     }),
@@ -49,9 +59,8 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user, trigger, session }) {
       if (user) {
-        // TODO: Fetch user from database
-        token.role = "APPLICANT" // Default role
-        token.companyId = null
+        token.role = user.role
+        token.companyId = user.companyId
       }
 
       if (trigger === "update" && session) {
@@ -71,8 +80,9 @@ export const authOptions: NextAuthOptions = {
       return session
     },
     async signIn({ user, account, profile }) {
-      // For OAuth providers, allow sign in
+      // For OAuth providers, allow sign in 
       if (account?.provider !== "credentials") {
+        // TODO: Create user in database when Prisma is working
         return true
       }
 

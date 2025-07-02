@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from "next/server"
+// import { prisma } from "@/lib/db" // Disabled for now due to Prisma generation issues
+import { jobSearchSchema } from "@/lib/validations"
 
-// Mock jobs data
+// Mock jobs data for demonstration
 const mockJobs = [
   {
     id: "1",
     title: "Senior Frontend Developer",
-    slug: "senior-frontend-developer-1",
-    description: "We're looking for a senior frontend developer to join our growing team. You'll be working on cutting-edge web applications using React, TypeScript, and modern tooling.",
-    requirements: "5+ years of experience with React, TypeScript, and modern frontend technologies",
-    benefits: "Competitive salary, health insurance, 401k, flexible working hours",
+    slug: "senior-frontend-developer-techcorp",
+    description: "We are looking for a senior frontend developer to join our growing team. You will be working on cutting-edge web applications using React, TypeScript, and modern tooling.",
+    requirements: "• 5+ years of experience with React and TypeScript\n• Strong understanding of modern JavaScript (ES6+)\n• Experience with state management (Redux, Zustand)",
+    benefits: "• Competitive salary and equity package\n• Comprehensive health, dental, and vision insurance\n• 401(k) with company matching",
     location: "San Francisco, CA",
     remote: false,
     salaryMin: 120000,
@@ -22,6 +24,7 @@ const mockJobs = [
     company: {
       id: "company-1",
       name: "TechCorp Inc.",
+      slug: "techcorp-inc",
       logo: null,
       verified: true,
     },
@@ -31,19 +34,22 @@ const mockJobs = [
       name: "Software Engineering",
       slug: "software-engineering",
     },
+    _count: {
+      applications: 12,
+    },
     views: 245,
-    publishedAt: new Date("2024-12-30T00:00:00Z"),
-    createdAt: new Date("2024-12-28T00:00:00Z"),
-    updatedAt: new Date("2024-12-30T00:00:00Z"),
+    publishedAt: new Date("2024-12-28"),
+    createdAt: new Date("2024-12-28"),
+    updatedAt: new Date("2024-12-30"),
   },
   {
     id: "2",
     title: "Product Manager",
-    slug: "product-manager-2",
+    slug: "product-manager-startupxyz",
     description: "Lead product strategy and execution for our innovative platform. Work closely with engineering, design, and business teams to deliver exceptional user experiences.",
-    requirements: "3+ years of product management experience, strong analytical skills",
-    benefits: "Equity package, health insurance, unlimited PTO",
-    location: "Remote",
+    requirements: "• 3+ years of product management experience\n• Strong analytical and problem-solving skills\n• Experience with product analytics tools",
+    benefits: "• Equity package with high growth potential\n• Health insurance and wellness stipend\n• Unlimited PTO policy",
+    location: "Austin, TX",
     remote: true,
     salaryMin: 100000,
     salaryMax: 130000,
@@ -56,8 +62,9 @@ const mockJobs = [
     company: {
       id: "company-2",
       name: "StartupXYZ",
+      slug: "startupxyz",
       logo: null,
-      verified: false,
+      verified: true,
     },
     categoryId: "cat-2",
     category: {
@@ -65,18 +72,21 @@ const mockJobs = [
       name: "Product Management",
       slug: "product-management",
     },
+    _count: {
+      applications: 8,
+    },
     views: 89,
-    publishedAt: new Date("2024-12-25T00:00:00Z"),
-    createdAt: new Date("2024-12-25T00:00:00Z"),
-    updatedAt: new Date("2024-12-25T00:00:00Z"),
+    publishedAt: new Date("2024-12-25"),
+    createdAt: new Date("2024-12-25"),
+    updatedAt: new Date("2024-12-25"),
   },
   {
     id: "3",
     title: "UX Designer",
-    slug: "ux-designer-3",
-    description: "Create amazing user experiences for our diverse client portfolio. You'll be responsible for user research, wireframing, prototyping, and collaborating with development teams.",
-    requirements: "2+ years of UX design experience, proficiency in Figma/Sketch",
-    benefits: "Creative environment, professional development budget, flexible schedule",
+    slug: "ux-designer-design-studio",
+    description: "Create amazing user experiences for our diverse client portfolio. You will be responsible for user research, wireframing, prototyping, and collaborating with development teams.",
+    requirements: "• 2+ years of UX design experience\n• Proficiency in Figma or Sketch\n• Strong portfolio showcasing UX process",
+    benefits: "• Creative and collaborative environment\n• Professional development budget for conferences\n• Flexible schedule and work arrangements",
     location: "New York, NY",
     remote: false,
     salaryMin: 80000,
@@ -90,6 +100,7 @@ const mockJobs = [
     company: {
       id: "company-3",
       name: "Design Studio",
+      slug: "design-studio",
       logo: null,
       verified: true,
     },
@@ -99,49 +110,69 @@ const mockJobs = [
       name: "Design",
       slug: "design",
     },
+    _count: {
+      applications: 15,
+    },
     views: 156,
-    publishedAt: new Date("2024-12-29T00:00:00Z"),
-    createdAt: new Date("2024-12-29T00:00:00Z"),
-    updatedAt: new Date("2024-12-29T00:00:00Z"),
+    publishedAt: new Date("2024-12-27"),
+    createdAt: new Date("2024-12-27"),
+    updatedAt: new Date("2024-12-27"),
   },
 ]
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get("page") || "1")
-    const limit = parseInt(searchParams.get("limit") || "20")
-    const search = searchParams.get("search") || ""
-    const location = searchParams.get("location") || ""
-    const jobType = searchParams.getAll("jobType")
-    const experience = searchParams.getAll("experience")
-    const remote = searchParams.get("remote") === "true"
-    const featured = searchParams.get("featured") === "true"
+    
+    // Parse and validate search parameters
+    const params = {
+      q: searchParams.get("q") || undefined,
+      location: searchParams.get("location") || undefined,
+      remote: searchParams.get("remote") === "true" ? true : undefined,
+      jobType: searchParams.get("jobType") ? [searchParams.get("jobType")!] : undefined,
+      experience: searchParams.get("experience") ? [searchParams.get("experience")!] : undefined,
+      category: searchParams.get("category") || undefined,
+      salaryMin: searchParams.get("salaryMin") ? parseInt(searchParams.get("salaryMin")!) : undefined,
+      salaryMax: searchParams.get("salaryMax") ? parseInt(searchParams.get("salaryMax")!) : undefined,
+      company: searchParams.get("company") || undefined,
+      page: parseInt(searchParams.get("page") || "1"),
+      limit: parseInt(searchParams.get("limit") || "12"),
+    }
 
-    // Filter jobs based on query parameters
+    // Filter jobs based on criteria (simplified for demo)
     let filteredJobs = mockJobs.filter(job => {
-      if (search && !job.title.toLowerCase().includes(search.toLowerCase()) && 
-          !job.company.name.toLowerCase().includes(search.toLowerCase())) {
+      if (params.q) {
+        const searchTerm = params.q.toLowerCase()
+        if (!job.title.toLowerCase().includes(searchTerm) && 
+            !job.description.toLowerCase().includes(searchTerm) &&
+            !job.company.name.toLowerCase().includes(searchTerm)) {
+          return false
+        }
+      }
+      
+      if (params.location) {
+        if (!job.location.toLowerCase().includes(params.location.toLowerCase())) {
+          return false
+        }
+      }
+      
+      if (params.remote !== undefined && job.remote !== params.remote) {
         return false
       }
       
-      if (location && !job.location.toLowerCase().includes(location.toLowerCase())) {
+      if (params.jobType && params.jobType.length > 0 && !params.jobType.includes(job.jobType)) {
         return false
       }
       
-      if (jobType.length > 0 && !jobType.includes(job.jobType)) {
+      if (params.experience && params.experience.length > 0 && !params.experience.includes(job.experience)) {
         return false
       }
       
-      if (experience.length > 0 && !experience.includes(job.experience)) {
+      if (params.category && job.category.slug !== params.category) {
         return false
       }
       
-      if (remote !== undefined && job.remote !== remote) {
-        return false
-      }
-      
-      if (featured && !job.featured) {
+      if (params.company && job.company.slug !== params.company) {
         return false
       }
       
@@ -150,20 +181,18 @@ export async function GET(request: NextRequest) {
 
     // Pagination
     const total = filteredJobs.length
-    const totalPages = Math.ceil(total / limit)
-    const offset = (page - 1) * limit
-    const paginatedJobs = filteredJobs.slice(offset, offset + limit)
+    const pages = Math.ceil(total / params.limit)
+    const skip = (params.page - 1) * params.limit
+    const paginatedJobs = filteredJobs.slice(skip, skip + params.limit)
 
     return NextResponse.json({
       jobs: paginatedJobs,
       pagination: {
-        page,
-        limit,
+        page: params.page,
+        limit: params.limit,
         total,
-        totalPages,
-        hasNextPage: page < totalPages,
-        hasPrevPage: page > 1,
-      },
+        pages,
+      }
     })
   } catch (error) {
     console.error("Jobs API error:", error)
@@ -176,8 +205,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    // TODO: Implement job creation
-    // For now, return method not allowed
+    // TODO: Implement job creation with authentication
     return NextResponse.json(
       { message: "Job creation not implemented yet" },
       { status: 501 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { hash } from "bcryptjs"
 import { registerSchema } from "@/lib/validations"
+// import { prisma } from "@/lib/db" // Disabled for now due to Prisma generation issues
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,12 +19,20 @@ export async function POST(request: NextRequest) {
 
     const { name, email, password, role } = result.data
 
-    // For now, just return success since we don't have database connection
-    // TODO: Check if user already exists
-    // TODO: Create user in database with hashed password
+    // TODO: Implement database integration when Prisma is working
+    // For now, return success for demonstration
     
     return NextResponse.json(
-      { message: "User created successfully" },
+      { 
+        message: "User created successfully (demo mode)",
+        user: {
+          id: "demo-" + Date.now(),
+          name,
+          email,
+          role,
+          companyId: null,
+        }
+      },
       { status: 201 }
     )
   } catch (error) {
