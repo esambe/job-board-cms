@@ -1,48 +1,115 @@
+"use client"
+
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
-import { Search, MapPin, Clock, DollarSign } from "lucide-react"
+import { Search, MapPin, Clock, DollarSign, Filter } from "lucide-react"
+import { formatCurrency, formatRelativeTime, formatJobType } from "@/lib/utils"
 
-// Mock data for now
-const mockJobs = [
-  {
-    id: "1",
-    title: "Senior Frontend Developer",
-    company: "TechCorp Inc.",
-    location: "San Francisco, CA",
-    type: "FULL_TIME",
-    salary: "$120,000 - $150,000",
-    description: "We're looking for a senior frontend developer to join our growing team...",
-    postedAt: "2 days ago",
-    featured: true,
-  },
-  {
-    id: "2",
-    title: "Product Manager",
-    company: "StartupXYZ",
-    location: "Remote",
-    type: "FULL_TIME",
-    salary: "$100,000 - $130,000",
-    description: "Lead product strategy and execution for our innovative platform...",
-    postedAt: "1 week ago",
-    featured: false,
-  },
-  {
-    id: "3",
-    title: "UX Designer",
-    company: "Design Studio",
-    location: "New York, NY",
-    type: "CONTRACT",
-    salary: "$80,000 - $100,000",
-    description: "Create amazing user experiences for our diverse client portfolio...",
-    postedAt: "3 days ago",
-    featured: false,
-  },
-]
+interface Job {
+  id: string
+  title: string
+  company: {
+    name: string
+    logo?: string
+    verified: boolean
+  }
+  location: string
+  remote: boolean
+  jobType: string
+  experience: string
+  salaryMin?: number
+  salaryMax?: number
+  currency: string
+  description: string
+  featured: boolean
+  publishedAt: string
+  views: number
+}
+
+interface JobsResponse {
+  jobs: Job[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+    hasNextPage: boolean
+    hasPrevPage: boolean
+  }
+}
 
 export default function JobsPage() {
+  const [jobs, setJobs] = useState<Job[]>([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState("")
+  const [location, setLocation] = useState("")
+  const [jobType, setJobType] = useState<string[]>([])
+  const [experience, setExperience] = useState<string[]>([])
+  const [pagination, setPagination] = useState({
+    page: 1,
+    total: 0,
+    totalPages: 0,
+  })
+
+  const fetchJobs = async () => {
+    try {
+      setLoading(true)
+      const params = new URLSearchParams({
+        page: pagination.page.toString(),
+        limit: "20",
+      })
+      
+      if (search) params.set("search", search)
+      if (location) params.set("location", location)
+      jobType.forEach(type => params.append("jobType", type))
+      experience.forEach(exp => params.append("experience", exp))
+
+      const response = await fetch(`/api/jobs?${params}`)
+      if (!response.ok) throw new Error("Failed to fetch jobs")
+      
+      const data: JobsResponse = await response.json()
+      setJobs(data.jobs)
+      setPagination({
+        page: data.pagination.page,
+        total: data.pagination.total,
+        totalPages: data.pagination.totalPages,
+      })
+    } catch (error) {
+      console.error("Error fetching jobs:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchJobs()
+  }, [pagination.page])
+
+  const handleSearch = () => {
+    setPagination(prev => ({ ...prev, page: 1 }))
+    fetchJobs()
+  }
+
+  const toggleJobType = (type: string) => {
+    setJobType(prev => 
+      prev.includes(type) 
+        ? prev.filter(t => t !== type)
+        : [...prev, type]
+    )
+  }
+
+  const toggleExperience = (exp: string) => {
+    setExperience(prev => 
+      prev.includes(exp) 
+        ? prev.filter(e => e !== exp)
+        : [...prev, exp]
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -60,6 +127,9 @@ export default function JobsPage() {
               <Input
                 placeholder="Job title, keywords, or company"
                 className="pl-10"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
               />
             </div>
             <div className="relative md:w-64">
@@ -67,9 +137,12 @@ export default function JobsPage() {
               <Input
                 placeholder="Location"
                 className="pl-10"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
               />
             </div>
-            <Button size="lg" className="md:w-auto">
+            <Button size="lg" className="md:w-auto" onClick={handleSearch}>
               Search Jobs
             </Button>
           </div>
@@ -89,10 +162,21 @@ export default function JobsPage() {
                 <div>
                   <h4 className="font-medium mb-3">Job Type</h4>
                   <div className="space-y-2">
-                    {["Full Time", "Part Time", "Contract", "Freelance"].map((type) => (
-                      <label key={type} className="flex items-center space-x-2">
-                        <input type="checkbox" className="rounded border-gray-300" />
-                        <span className="text-sm">{type}</span>
+                    {[
+                      { value: "FULL_TIME", label: "Full Time" },
+                      { value: "PART_TIME", label: "Part Time" },
+                      { value: "CONTRACT", label: "Contract" },
+                      { value: "FREELANCE", label: "Freelance" },
+                      { value: "INTERNSHIP", label: "Internship" }
+                    ].map((type) => (
+                      <label key={type.value} className="flex items-center space-x-2">
+                        <input 
+                          type="checkbox" 
+                          className="rounded border-gray-300"
+                          checked={jobType.includes(type.value)}
+                          onChange={() => toggleJobType(type.value)}
+                        />
+                        <span className="text-sm">{type.label}</span>
                       </label>
                     ))}
                   </div>
@@ -101,14 +185,33 @@ export default function JobsPage() {
                 <div>
                   <h4 className="font-medium mb-3">Experience Level</h4>
                   <div className="space-y-2">
-                    {["Entry Level", "Mid Level", "Senior Level", "Executive"].map((level) => (
-                      <label key={level} className="flex items-center space-x-2">
-                        <input type="checkbox" className="rounded border-gray-300" />
-                        <span className="text-sm">{level}</span>
+                    {[
+                      { value: "ENTRY_LEVEL", label: "Entry Level" },
+                      { value: "MID_LEVEL", label: "Mid Level" },
+                      { value: "SENIOR_LEVEL", label: "Senior Level" },
+                      { value: "EXECUTIVE", label: "Executive" }
+                    ].map((level) => (
+                      <label key={level.value} className="flex items-center space-x-2">
+                        <input 
+                          type="checkbox" 
+                          className="rounded border-gray-300"
+                          checked={experience.includes(level.value)}
+                          onChange={() => toggleExperience(level.value)}
+                        />
+                        <span className="text-sm">{level.label}</span>
                       </label>
                     ))}
                   </div>
                 </div>
+                
+                <Button 
+                  variant="outline" 
+                  onClick={handleSearch}
+                  className="w-full"
+                >
+                  <Filter className="w-4 h-4 mr-2" />
+                  Apply Filters
+                </Button>
               </CardContent>
             </Card>
           </div>
@@ -117,7 +220,7 @@ export default function JobsPage() {
           <div className="lg:col-span-3">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-semibold">
-                {mockJobs.length} jobs found
+                {loading ? "Loading..." : `${pagination.total} jobs found`}
               </h2>
               <select className="border border-gray-300 rounded-md px-3 py-2">
                 <option>Sort by: Most Recent</option>
@@ -127,67 +230,106 @@ export default function JobsPage() {
               </select>
             </div>
 
-            <div className="space-y-6">
-              {mockJobs.map((job) => (
-                <Card key={job.id} className="hover:shadow-md transition-shadow">
-                  <CardContent className="p-6">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h3 className="text-xl font-semibold text-gray-900">
-                            {job.title}
-                          </h3>
-                          {job.featured && (
-                            <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
-                              Featured
-                            </Badge>
-                          )}
+            {loading ? (
+              <div className="space-y-4">
+                {[...Array(5)].map((_, i) => (
+                  <Card key={i} className="animate-pulse">
+                    <CardContent className="p-6">
+                      <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                      <div className="h-3 bg-gray-200 rounded w-1/2 mb-4"></div>
+                      <div className="h-3 bg-gray-200 rounded w-full"></div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {jobs.map((job) => (
+                  <Card key={job.id} className="hover:shadow-md transition-shadow">
+                    <CardContent className="p-6">
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h3 className="text-xl font-semibold text-gray-900">
+                              {job.title}
+                            </h3>
+                            {job.featured && (
+                              <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+                                Featured
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 mb-2">
+                            <p className="text-lg text-gray-700">{job.company.name}</p>
+                            {job.company.verified && (
+                              <Badge variant="outline" className="text-xs">
+                                ✓ Verified
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
+                            <div className="flex items-center gap-1">
+                              <MapPin className="h-4 w-4" />
+                              {job.remote ? "Remote" : job.location}
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Clock className="h-4 w-4" />
+                              {formatJobType(job.jobType)}
+                            </div>
+                            {job.salaryMin && job.salaryMax && (
+                              <div className="flex items-center gap-1">
+                                <DollarSign className="h-4 w-4" />
+                                {formatCurrency(job.salaryMin)} - {formatCurrency(job.salaryMax)}
+                              </div>
+                            )}
+                            <div className="flex items-center gap-1">
+                              <span>👁️</span>
+                              {job.views} views
+                            </div>
+                          </div>
                         </div>
-                        <p className="text-lg text-gray-700 mb-2">{job.company}</p>
-                        <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
-                          <div className="flex items-center gap-1">
-                            <MapPin className="h-4 w-4" />
-                            {job.location}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-4 w-4" />
-                            {job.type.replace("_", " ")}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <DollarSign className="h-4 w-4" />
-                            {job.salary}
-                          </div>
+                        <div className="flex flex-col items-end gap-2">
+                          <span className="text-sm text-gray-500">
+                            {formatRelativeTime(job.publishedAt)}
+                          </span>
+                          <Button asChild>
+                            <Link href={`/jobs/${job.id}`}>View Details</Link>
+                          </Button>
                         </div>
                       </div>
-                      <div className="flex flex-col items-end gap-2">
-                        <span className="text-sm text-gray-500">{job.postedAt}</span>
-                        <Button asChild>
-                          <Link href={`/jobs/${job.id}`}>View Details</Link>
-                        </Button>
-                      </div>
-                    </div>
-                    <p className="text-gray-600 line-clamp-2">{job.description}</p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                      <p className="text-gray-600 line-clamp-2">{job.description}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
 
             {/* Pagination */}
-            <div className="flex justify-center mt-8">
-              <div className="flex items-center gap-2">
-                <Button variant="outline" disabled>
-                  Previous
-                </Button>
-                <Button variant="outline" className="bg-primary text-primary-foreground">
-                  1
-                </Button>
-                <Button variant="outline">2</Button>
-                <Button variant="outline">3</Button>
-                <Button variant="outline">
-                  Next
-                </Button>
+            {!loading && pagination.totalPages > 1 && (
+              <div className="flex justify-center mt-8">
+                <div className="flex items-center gap-2">
+                  <Button 
+                    variant="outline" 
+                    disabled={pagination.page === 1}
+                    onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
+                  >
+                    Previous
+                  </Button>
+                  
+                  <span className="px-3 py-2 text-sm">
+                    Page {pagination.page} of {pagination.totalPages}
+                  </span>
+                  
+                  <Button 
+                    variant="outline"
+                    disabled={pagination.page === pagination.totalPages}
+                    onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+                  >
+                    Next
+                  </Button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>

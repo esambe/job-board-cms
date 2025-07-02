@@ -3,6 +3,7 @@ import { NextAuthOptions } from "next-auth"
 import GoogleProvider from "next-auth/providers/google"
 import GitHubProvider from "next-auth/providers/github"
 import CredentialsProvider from "next-auth/providers/credentials"
+import { MockDataStorage } from "@/lib/storage"
 // import { prisma } from "@/lib/db"
 // import { compare } from "bcryptjs"
 
@@ -40,18 +41,36 @@ export const authOptions: NextAuthOptions = {
           return null
         }
 
-        // TODO: Implement database authentication
-        // For now, return null to disable credentials auth
-        return null
+        // Use mock data for authentication
+        const user = MockDataStorage.findUserByEmail(credentials.email)
+        
+        if (!user) {
+          return null
+        }
+
+        // In a real app, passwords would be hashed
+        // For mock data, we do simple comparison
+        if (user.password !== credentials.password) {
+          return null
+        }
+
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          image: user.image,
+          role: user.role,
+          companyId: user.companyId,
+        }
       },
     }),
   ],
   callbacks: {
     async jwt({ token, user, trigger, session }) {
       if (user) {
-        // TODO: Fetch user from database
-        token.role = "APPLICANT" // Default role
-        token.companyId = null
+        // User info from authorization
+        token.role = user.role || "APPLICANT"
+        token.companyId = user.companyId || null
       }
 
       if (trigger === "update" && session) {
@@ -71,8 +90,23 @@ export const authOptions: NextAuthOptions = {
       return session
     },
     async signIn({ user, account, profile }) {
-      // For OAuth providers, allow sign in
-      if (account?.provider !== "credentials") {
+      // For OAuth providers, create user in mock data if doesn't exist
+      if (account?.provider !== "credentials" && user.email) {
+        const existingUser = MockDataStorage.findUserByEmail(user.email)
+        if (!existingUser) {
+          // Create new user in mock data
+          const newUser = {
+            id: `oauth-${Date.now()}`,
+            email: user.email,
+            password: "", // OAuth users don't have passwords
+            name: user.name || "OAuth User",
+            role: "APPLICANT" as const,
+            image: user.image || undefined,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          }
+          MockDataStorage.addUser(newUser)
+        }
         return true
       }
 
