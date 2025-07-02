@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
       },
       success: true
     })
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { success: false, error: 'Failed to fetch jobs' },
       { status: 500 }
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
       success: true,
       message: 'Job created successfully'
     }, { status: 201 })
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { success: false, error: 'Failed to create job' },
       { status: 500 }
