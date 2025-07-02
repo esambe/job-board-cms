@@ -1,5 +1,7 @@
-import { type Prisma } from "@prisma/client"
+// import { type Prisma } from "@prisma/client"
 
+// Temporarily commented out until Prisma is properly configured
+/*
 export type UserWithProfile = Prisma.UserGetPayload<{
   include: {
     profile: true
@@ -65,6 +67,45 @@ export type CompanyWithJobs = Prisma.CompanyGetPayload<{
     }
   }
 }>
+*/
+
+// Basic types for now
+export interface UserWithProfile {
+  id: string
+  name: string | null
+  email: string
+  role: string
+  image?: string | null
+  companyId?: string | null
+}
+
+export interface JobWithDetails {
+  id: string
+  title: string
+  slug: string
+  description: string
+  location: string
+  remote: boolean
+  jobType: string
+  status: string
+  featured: boolean
+  createdAt: Date
+}
+
+export interface ApplicationWithDetails {
+  id: string
+  status: string
+  appliedAt: Date
+}
+
+export interface CompanyWithJobs {
+  id: string
+  name: string
+  slug: string
+  description?: string | null
+  logo?: string | null
+  verified: boolean
+}
 
 export interface JobFilters {
   search?: string

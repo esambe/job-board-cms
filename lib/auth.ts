@@ -1,19 +1,18 @@
 import { NextAuthOptions } from "next-auth"
-import { PrismaAdapter } from "@auth/prisma-adapter"
+// import { PrismaAdapter } from "@auth/prisma-adapter"
 import GoogleProvider from "next-auth/providers/google"
 import GitHubProvider from "next-auth/providers/github"
 import CredentialsProvider from "next-auth/providers/credentials"
-import { prisma } from "@/lib/db"
-import { compare } from "bcryptjs"
+// import { prisma } from "@/lib/db"
+// import { compare } from "bcryptjs"
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
+  // adapter: PrismaAdapter(prisma),
   session: {
     strategy: "jwt",
   },
   pages: {
     signIn: "/login",
-    signUp: "/register",
   },
   providers: [
     GoogleProvider({
@@ -41,53 +40,18 @@ export const authOptions: NextAuthOptions = {
           return null
         }
 
-        const user = await prisma.user.findUnique({
-          where: {
-            email: credentials.email,
-          },
-          include: {
-            company: true,
-          },
-        })
-
-        if (!user) {
-          return null
-        }
-
-        // For OAuth users, password might not be set
-        if (!user.password) {
-          return null
-        }
-
-        const isPasswordValid = await compare(credentials.password, user.password)
-
-        if (!isPasswordValid) {
-          return null
-        }
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          image: user.image,
-          companyId: user.companyId,
-        }
+        // TODO: Implement database authentication
+        // For now, return null to disable credentials auth
+        return null
       },
     }),
   ],
   callbacks: {
     async jwt({ token, user, trigger, session }) {
       if (user) {
-        const dbUser = await prisma.user.findUnique({
-          where: { id: user.id },
-          include: { company: true },
-        })
-
-        if (dbUser) {
-          token.role = dbUser.role
-          token.companyId = dbUser.companyId
-        }
+        // TODO: Fetch user from database
+        token.role = "APPLICANT" // Default role
+        token.companyId = null
       }
 
       if (trigger === "update" && session) {
@@ -107,51 +71,12 @@ export const authOptions: NextAuthOptions = {
       return session
     },
     async signIn({ user, account, profile }) {
-      // For OAuth providers, create user profile if it doesn't exist
+      // For OAuth providers, allow sign in
       if (account?.provider !== "credentials") {
-        try {
-          const existingUser = await prisma.user.findUnique({
-            where: { email: user.email! },
-          })
-
-          if (existingUser) {
-            return true
-          }
-
-          // Create new user with OAuth data
-          await prisma.user.create({
-            data: {
-              email: user.email!,
-              name: user.name || "",
-              image: user.image,
-              role: "APPLICANT", // Default role
-            },
-          })
-        } catch (error) {
-          console.error("Error creating user:", error)
-          return false
-        }
+        return true
       }
 
       return true
-    },
-  },
-  events: {
-    async signIn({ user, account, profile, isNewUser }) {
-      // Log sign-in events for analytics
-      console.log(`User ${user.email} signed in with ${account?.provider}`)
-    },
-    async createUser({ user }) {
-      // Create user profile when new user is created
-      try {
-        await prisma.userProfile.create({
-          data: {
-            userId: user.id,
-          },
-        })
-      } catch (error) {
-        console.error("Error creating user profile:", error)
-      }
     },
   },
 }
