@@ -116,6 +116,64 @@ export default function LoginPage() {
           </div>
         </div>
 
+        {/* Demo Accounts */}
+        <div className="space-y-4 p-4 bg-gray-50 rounded-lg border">
+          <h4 className="font-medium text-sm text-gray-900">Demo Accounts</h4>
+          <div className="space-y-3 text-xs">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="font-medium">Admin</p>
+                <p className="text-gray-600">admin@jobboard.com</p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setEmail("admin@jobboard.com")
+                  setPassword("admin123")
+                }}
+              >
+                Use
+              </Button>
+            </div>
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="font-medium">Company</p>
+                <p className="text-gray-600">hr@techcorp.com</p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setEmail("hr@techcorp.com")
+                  setPassword("company123")
+                }}
+              >
+                Use
+              </Button>
+            </div>
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="font-medium">Job Seeker</p>
+                <p className="text-gray-600">john@example.com</p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setEmail("john@example.com")
+                  setPassword("user123")
+                }}
+              >
+                Use
+              </Button>
+            </div>
+          </div>
+        </div>
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
